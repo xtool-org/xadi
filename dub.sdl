@@ -5,4 +5,7 @@ targetPath "bin"
 
 dflags "--link-defaultlib-shared=false"
 
+# The upstream plist package is down
+dependency "plist" repository="git+https://github.com/Dadoum/plist.git" version="a425458e2c3d8195c6a9ad68e643f2d823850693"
+
 dependency "provision" repository="git+https://github.com/Dadoum/Provision.git" version="fe879b1148767767481b9c2753d4fd741cb2d7fa"
