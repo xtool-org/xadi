@@ -1,4 +1,4 @@
-name "xprovision"
+name "xadi"
 
 targetType "dynamicLibrary"
 targetPath "bin"
