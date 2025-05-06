@@ -1,4 +1,4 @@
-module provision.supersette.exports;
+module provision.xprovision.exports;
 
 import provision.adi;
 import provision.compat.general;
@@ -9,7 +9,7 @@ import slf4d.default_provider;
 
 __gshared ADI gADI;
 
-public extern(C) void supersette_Load(const char* path) {
+public extern(C) void xprov_Load(const char* path) {
     Runtime.initialize();
     debug {
         configureLoggingProvider(new shared DefaultProvider(true, Levels.DEBUG));
@@ -17,42 +17,42 @@ public extern(C) void supersette_Load(const char* path) {
     gADI = new ADI(cast(string) path.fromStringz);
 }
 
-public extern(C) int supersette_SetAndroidID(const char* identifier, uint length) {
+public extern(C) int xprov_SetAndroidID(const char* identifier, uint length) {
     return androidInvoke!gADI.pADISetAndroidID(identifier, length);
 }
 
-public extern(C) int supersette_SetProvisioningPath(const char* path) {
+public extern(C) int xprov_SetProvisioningPath(const char* path) {
     return androidInvoke!gADI.pADISetProvisioningPath(path);
 }
 
-public extern(C) int supersette_ProvisioningErase(ulong dsId) {
+public extern(C) int xprov_ProvisioningErase(ulong dsId) {
     return androidInvoke!gADI.pADIProvisioningErase(dsId);
 }
 
-public extern(C) int supersette_Synchronize(ulong dsId, ubyte* serverIntermediateMetadata, uint serverIntermediateMetadataLength, ubyte** machineIdentifier, uint* machineIdentifierLength, ubyte** synchronizationResumeMetadata, uint* synchronizationResumeMetadataLength) {
+public extern(C) int xprov_Synchronize(ulong dsId, ubyte* serverIntermediateMetadata, uint serverIntermediateMetadataLength, ubyte** machineIdentifier, uint* machineIdentifierLength, ubyte** synchronizationResumeMetadata, uint* synchronizationResumeMetadataLength) {
     return androidInvoke!gADI.pADISynchronize(dsId, serverIntermediateMetadata, serverIntermediateMetadataLength, machineIdentifier, machineIdentifierLength, synchronizationResumeMetadata, synchronizationResumeMetadataLength);
 }
 
-public extern(C) int supersette_ProvisioningDestroy(uint session) {
+public extern(C) int xprov_ProvisioningDestroy(uint session) {
     return androidInvoke!gADI.pADIProvisioningDestroy(session);
 }
 
-public extern(C) int supersette_ProvisioningEnd(uint session, ubyte* persistentTokenMetadata, uint persistentTokenMetadataLength, ubyte* trustKey, uint trustKeyLength) {
+public extern(C) int xprov_ProvisioningEnd(uint session, ubyte* persistentTokenMetadata, uint persistentTokenMetadataLength, ubyte* trustKey, uint trustKeyLength) {
     return androidInvoke!gADI.pADIProvisioningEnd(session, persistentTokenMetadata, persistentTokenMetadataLength, trustKey, trustKeyLength);
 }
 
-public extern(C) int supersette_ProvisioningStart(ulong dsId, ubyte* serverProvisioningIntermediateMetadata, uint serverProvisioningIntermediateMetadataLength, ubyte** clientProvisioningIntermediateMetadata, uint* clientProvisioningIntermediateMetadataLength, uint* session) {
+public extern(C) int xprov_ProvisioningStart(ulong dsId, ubyte* serverProvisioningIntermediateMetadata, uint serverProvisioningIntermediateMetadataLength, ubyte** clientProvisioningIntermediateMetadata, uint* clientProvisioningIntermediateMetadataLength, uint* session) {
     return androidInvoke!gADI.pADIProvisioningStart(dsId, serverProvisioningIntermediateMetadata, serverProvisioningIntermediateMetadataLength, clientProvisioningIntermediateMetadata, clientProvisioningIntermediateMetadataLength, session);
 }
 
-public extern(C) int supersette_GetLoginCode(ulong dsId) {
+public extern(C) int xprov_GetLoginCode(ulong dsId) {
     return androidInvoke!gADI.pADIGetLoginCode(dsId);
 }
 
-public extern(C) int supersette_Dispose(void* ptr) {
+public extern(C) int xprov_Dispose(void* ptr) {
     return androidInvoke!gADI.pADIDispose(ptr);
 }
 
-public extern(C) int supersette_OTPRequest(ulong dsId, ubyte** machineIdentifier, uint* machineIdentifierLength, ubyte** oneTimePassword, uint* oneTimePasswordLength) {
+public extern(C) int xprov_OTPRequest(ulong dsId, ubyte** machineIdentifier, uint* machineIdentifierLength, ubyte** oneTimePassword, uint* oneTimePasswordLength) {
     return androidInvoke!gADI.pADIOTPRequest(dsId, machineIdentifier, machineIdentifierLength, oneTimePassword, oneTimePasswordLength);
 }
