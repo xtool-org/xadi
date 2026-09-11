@@ -5,7 +5,11 @@ import PackageDescription
 let package = Package(
     name: "xadi",
     products: [
-        .library(name: "XADI", targets: ["XADI"])
+        .library(
+            name: "XADI",
+            type: .dynamic,
+            targets: ["XADI"]
+        )
     ],
     targets: [
         .target(
