@@ -1,0 +1,6 @@
+name "xadibase"
+
+targetType "staticLibrary"
+targetPath "bin"
+
+dependency "provision" repository="git+https://github.com/Dadoum/Provision.git" version="7717ce1f7b3c9779fe9982005d07b6665071a239"

@@ -1,0 +1,256 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semantic version (1.2.3)
+        required: true
+        type: string
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    outputs:
+      source_tag: ${{ steps.version.outputs.source_tag }}
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate version
+        id: version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          semver='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?(\+[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$'
+          if [[ ! "$VERSION" =~ $semver ]]; then
+            echo "version must be semantic and must not include a leading v" >&2
+            exit 1
+          fi
+
+          source_tag="source-$VERSION"
+          tag="v$VERSION"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "tag $tag already exists" >&2
+            exit 1
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$source_tag" >/dev/null 2>&1; then
+            git fetch --force origin "refs/tags/$source_tag:refs/tags/$source_tag"
+            tagged_commit="$(git rev-parse "$source_tag^{commit}")"
+            if [[ "$tagged_commit" != "$GITHUB_SHA" ]]; then
+              echo "tag $source_tag points to $tagged_commit, not $GITHUB_SHA" >&2
+              exit 1
+            fi
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "source_tag=$source_tag" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  build-linux:
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            triple: x86_64-unknown-linux-gnu
+          - runner: ubuntu-24.04-arm
+            triple: aarch64-unknown-linux-gnu
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install LDC and DUB
+        uses: dlang-community/setup-dlang@v2
+        with:
+          compiler: ldc
+
+      - name: Build and test
+        run: |
+          set -euo pipefail
+          make test
+
+      - name: Pack architecture slice
+        env:
+          TRIPLE: ${{ matrix.triple }}
+        run: |
+          set -euo pipefail
+          tar -C out/XADIBinary.artifactbundle -czf "$RUNNER_TEMP/$TRIPLE.tar.gz" "$TRIPLE"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: slice-${{ matrix.triple }}
+          path: ${{ runner.temp }}/${{ matrix.triple }}.tar.gz
+          if-no-files-found: error
+
+  build-macos:
+    needs: validate
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install LDC and DUB
+        uses: dlang-community/setup-dlang@v2
+        with:
+          compiler: ldc
+
+      - name: Build and test
+        run: |
+          set -euo pipefail
+          make test
+
+      - name: Pack macOS slices
+        run: |
+          set -euo pipefail
+          tar -C out/XADIBinary.artifactbundle -czf "$RUNNER_TEMP/macos.tar.gz" \
+            arm64-apple-macosx \
+            x86_64-apple-macosx
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: slice-macos
+          path: ${{ runner.temp }}/macos.tar.gz
+          if-no-files-found: error
+
+  release:
+    needs:
+      - validate
+      - build-linux
+      - build-macos
+    runs-on: ubuntu-24.04
+    env:
+      ARCHIVE: XADIBinary.artifactbundle.zip
+      BUNDLE: out/XADIBinary.artifactbundle
+      SOURCE_TAG: ${{ needs.validate.outputs.source_tag }}
+      TAG: ${{ needs.validate.outputs.tag }}
+      VERSION: ${{ needs.validate.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: slice-*
+          path: ${{ runner.temp }}/xadi-slices
+          merge-multiple: true
+
+      - name: Assemble and test artifact bundle
+        run: |
+          set -euo pipefail
+
+          mkdir -p "$BUNDLE/include"
+          for archive in "$RUNNER_TEMP"/xadi-slices/*.tar.gz; do
+            tar -xzf "$archive" -C "$BUNDLE"
+          done
+
+          cp Sources/XADI/include/XADI.h "$BUNDLE/include/XADI.h"
+          cp ArtifactBundle/module.modulemap "$BUNDLE/include/module.modulemap"
+          ./ArtifactBundle/update-info.sh "$BUNDLE" "$VERSION"
+
+          test -f "$BUNDLE/arm64-apple-macosx/libxadibase.a"
+          test -f "$BUNDLE/x86_64-apple-macosx/libxadibase.a"
+          test -f "$BUNDLE/aarch64-unknown-linux-gnu/libxadibase.a"
+          test -f "$BUNDLE/x86_64-unknown-linux-gnu/libxadibase.a"
+          make test-without-building
+
+      - name: Archive artifact bundle
+        id: archive
+        run: |
+          set -euo pipefail
+
+          pushd out >/dev/null
+          zip -qry "$RUNNER_TEMP/$ARCHIVE" XADIBinary.artifactbundle
+          popd >/dev/null
+
+          checksum="$(swift package compute-checksum "$RUNNER_TEMP/$ARCHIVE")"
+          echo "checksum=$checksum" >> "$GITHUB_OUTPUT"
+
+      - name: Tag source and create GitHub release
+        run: |
+          set -euo pipefail
+
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$SOURCE_TAG" >/dev/null 2>&1; then
+            git fetch --force origin "refs/tags/$SOURCE_TAG:refs/tags/$SOURCE_TAG"
+            tagged_commit="$(git rev-parse "$SOURCE_TAG^{commit}")"
+            if [[ "$tagged_commit" != "$GITHUB_SHA" ]]; then
+              echo "tag $SOURCE_TAG points to $tagged_commit, not $GITHUB_SHA" >&2
+              exit 1
+            fi
+          else
+            git tag --annotate "$SOURCE_TAG" "$GITHUB_SHA" --message "XADI $VERSION source"
+            git push origin "$SOURCE_TAG"
+          fi
+
+          if gh release view "$SOURCE_TAG" >/dev/null 2>&1; then
+            gh release upload "$SOURCE_TAG" \
+              "$RUNNER_TEMP/$ARCHIVE#$ARCHIVE" \
+              --clobber
+          else
+            gh release create "$SOURCE_TAG" \
+              "$RUNNER_TEMP/$ARCHIVE#$ARCHIVE" \
+              --verify-tag \
+              --title "XADI $VERSION" \
+              --generate-notes
+          fi
+
+      - name: Commit release manifest and tag version
+        env:
+          CHECKSUM: ${{ steps.archive.outputs.checksum }}
+        run: |
+          set -euo pipefail
+
+          source_commit="$GITHUB_SHA"
+          if git ls-remote --exit-code --heads origin release >/dev/null 2>&1; then
+            git fetch origin release
+            git switch --force-create release FETCH_HEAD
+          else
+            git switch --orphan release
+          fi
+
+          # Keep release history linear while making its contents an exact copy
+          # of the source revision used for this build.
+          git read-tree --reset -u "$source_commit"
+
+          artifact_url="https://github.com/$GITHUB_REPOSITORY/releases/download/$SOURCE_TAG/$ARCHIVE"
+          awk -v url="$artifact_url" -v checksum="$CHECKSUM" '
+            /path: "out\/XADIBinary\.artifactbundle"/ {
+              match($0, /^[[:space:]]*/)
+              indent = substr($0, RSTART, RLENGTH)
+              print indent "url: \"" url "\","
+              print indent "checksum: \"" checksum "\""
+              replaced = 1
+              next
+            }
+            { print }
+            END { if (!replaced) exit 1 }
+          ' Package.swift > "$RUNNER_TEMP/Package.swift"
+          mv "$RUNNER_TEMP/Package.swift" Package.swift
+
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add --all
+          git commit -m "Release $VERSION"
+          git tag --annotate "$TAG" --message "XADI $VERSION"
+          git push --atomic origin release "$TAG"
