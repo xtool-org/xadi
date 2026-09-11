@@ -1,0 +1,3 @@
+module XADILinux [extern_c] {
+    link "xadi"
+}

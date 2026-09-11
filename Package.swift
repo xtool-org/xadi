@@ -11,12 +11,18 @@ let package = Package(
         .target(
             name: "XADI",
             dependencies: [
-                .byName(name: "XADISystem", condition: .when(platforms: [.linux])),
-                .byName(name: "XADIBinary", condition: .when(platforms: [.macOS]))
+                .byName(name: "XADILinux", condition: .when(platforms: [.linux])),
+                .byName(name: "XADIMac", condition: .when(platforms: [.macOS]))
             ],
         ),
-        .systemLibrary(name: "XADISystem"),
-        .binaryTarget(name: "XADIBinary", path: "tmp/stage/XADIBinary.xcframework"),
-        .testTarget(name: "XADITests", dependencies: ["XADI"])
+        .systemLibrary(name: "XADILinux"),
+        .binaryTarget(
+            name: "XADIMac",
+            path: "out/XADIMac.xcframework.zip"
+        ),
+        .testTarget(
+            name: "XADITests",
+            dependencies: ["XADI"],
+        )
     ]
 )
