@@ -3,14 +3,14 @@
 	"versions": {
 		"automem": "0.6.11",
 		"cachetools": "0.4.2",
-		"dxml": "0.4.4",
+		"dxml": "0.4.5",
 		"dynamic-loader": {"version":"9202b389affa6be0740e7295dea8f0146537a784","repository":"git+https://github.com/Dadoum/dynamicloader.git"},
-		"plist": {"version":"a425458e2c3d8195c6a9ad68e643f2d823850693","repository":"git+https://github.com/Dadoum/plist.git"},
+		"plist": "~master",
 		"plist-d": {"version":"6fdaa60d62bbf7c55044069e8f03cbe74401c444","repository":"git+https://github.com/Dadoum/libplist-d.git"},
-		"provision": {"version":"6b899c20a26aba8d2640188c75d184267e57fc06","repository":"git+https://github.com/Dadoum/Provision.git"},
-		"requests": "2.1.3",
+		"provision": {"version":"7717ce1f7b3c9779fe9982005d07b6665071a239","repository":"git+https://github.com/Dadoum/Provision.git"},
+		"requests": "2.2.1",
 		"slf4d": "2.4.3",
 		"test_allocator": "0.3.4",
-		"unit-threaded": "2.2.3"
+		"unit-threaded": "2.2.5"
 	}
 }
