@@ -15,6 +15,9 @@ concurrency:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   validate:
     runs-on: ubuntu-24.04
@@ -75,14 +78,13 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Install LDC and DUB
-        run: |
-          set -euo pipefail
-          curl -fsS https://dlang.org/install.sh | bash -s ldc
+        uses: dlang-community/setup-dlang@v2
+        with:
+          compiler: ldc
 
       - name: Build and test
         run: |
           set -euo pipefail
-          source "$("$HOME/dlang/install.sh" ldc -a)"
           ./Linux/build.sh
           swift test --package-path test --scratch-path "$RUNNER_TEMP/xadi-tests"
 
@@ -106,14 +108,13 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Install LDC and DUB
-        run: |
-          set -euo pipefail
-          curl -fsS https://dlang.org/install.sh | bash -s ldc
+        uses: dlang-community/setup-dlang@v2
+        with:
+          compiler: ldc
 
       - name: Build and test
         run: |
           set -euo pipefail
-          source "$("$HOME/dlang/install.sh" ldc -a)"
           ./macOS/build.sh
           swift test --package-path test --scratch-path "$RUNNER_TEMP/xadi-tests"
 
