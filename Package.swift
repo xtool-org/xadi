@@ -19,7 +19,8 @@ let package = Package(
         ),
         .binaryTarget(
             name: "XADIBinary",
-            path: "out/XADIBinary.artifactbundle"
+            url: "https://github.com/xtool-org/xadi/releases/download/source-0.4.0/XADIBinary.artifactbundle.zip",
+            checksum: "238740ef93c7ee22aaba7dc75006e1336d241dc20348830679b34bd910acd9fb"
         )
     ]
 )
