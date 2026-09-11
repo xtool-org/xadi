@@ -3,9 +3,19 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: Semantic version (1.2.3)
+      bump:
+        description: Version bump
         required: true
+        type: choice
+        default: minor
+        options:
+          - major
+          - minor
+          - patch
+          - custom
+      custom_version:
+        description: Explicit version (if custom)
+        required: false
         type: string
 
 concurrency:
@@ -33,18 +43,52 @@ jobs:
       - name: Validate version
         id: version
         env:
-          VERSION: ${{ inputs.version }}
+          BUMP: ${{ inputs.bump }}
+          CUSTOM_VERSION: ${{ inputs.custom_version }}
         run: |
           set -euo pipefail
 
           semver='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?(\+[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$'
-          if [[ ! "$VERSION" =~ $semver ]]; then
+          stable_semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+
+          if [[ "$BUMP" == custom ]]; then
+            if [[ -z "$CUSTOM_VERSION" ]]; then
+              echo "custom_version is required when Version bump is custom" >&2
+              exit 1
+            fi
+            version="$CUSTOM_VERSION"
+          else
+            if [[ -n "$CUSTOM_VERSION" ]]; then
+              echo "custom_version must be empty for a $BUMP version bump" >&2
+              exit 1
+            fi
+
+            latest_version="$({
+              while IFS= read -r tag; do
+                candidate="${tag#v}"
+                if [[ "$candidate" =~ $stable_semver ]]; then
+                  echo "$candidate"
+                fi
+              done < <(git tag --list 'v*')
+            } | sort -V | tail -n 1)"
+            latest_version="${latest_version:-0.0.0}"
+            IFS=. read -r major minor patch <<< "$latest_version"
+
+            case "$BUMP" in
+              major) version="$((10#$major + 1)).0.0" ;;
+              minor) version="$major.$((10#$minor + 1)).0" ;;
+              patch) version="$major.$minor.$((10#$patch + 1))" ;;
+              *) echo "unsupported version bump: $BUMP" >&2; exit 1 ;;
+            esac
+          fi
+
+          if [[ ! "$version" =~ $semver ]]; then
             echo "version must be semantic and must not include a leading v" >&2
             exit 1
           fi
 
-          source_tag="source-$VERSION"
-          tag="v$VERSION"
+          source_tag="source-$version"
+          tag="v$version"
           if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
             echo "tag $tag already exists" >&2
             exit 1
@@ -59,7 +103,7 @@ jobs:
             fi
           fi
 
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "source_tag=$source_tag" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
