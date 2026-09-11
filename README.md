@@ -9,3 +9,9 @@ A self-contained package (pointing at pre-built static libraries) is published t
 ```swift
 .package(url: "https://github.com/xtool-org/xadi", .upToNextMinor(from: ...)),
 ```
+
+## Releasing
+
+```sh
+./release.sh <major|minor|patch|v1.2.3>
+```

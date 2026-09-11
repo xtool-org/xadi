@@ -1,22 +1,9 @@
 name: Release
 
 on:
-  workflow_dispatch:
-    inputs:
-      bump:
-        description: Version bump
-        required: true
-        type: choice
-        default: minor
-        options:
-          - major
-          - minor
-          - patch
-          - custom
-      custom_version:
-        description: Explicit version (if custom)
-        required: false
-        type: string
+  push:
+    tags:
+      - source-*
 
 concurrency:
   group: release
@@ -32,6 +19,7 @@ jobs:
   validate:
     runs-on: ubuntu-24.04
     outputs:
+      source_commit: ${{ steps.version.outputs.source_commit }}
       source_tag: ${{ steps.version.outputs.source_tag }}
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
@@ -42,70 +30,30 @@ jobs:
 
       - name: Validate version
         id: version
-        env:
-          BUMP: ${{ inputs.bump }}
-          CUSTOM_VERSION: ${{ inputs.custom_version }}
         run: |
           set -euo pipefail
 
           semver='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?(\+[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$'
-          stable_semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          source_tag="$GITHUB_REF_NAME"
+          version="${source_tag#source-}"
 
-          if [[ "$BUMP" == custom ]]; then
-            if [[ -z "$CUSTOM_VERSION" ]]; then
-              echo "custom_version is required when Version bump is custom" >&2
-              exit 1
-            fi
-            version="$CUSTOM_VERSION"
-          else
-            if [[ -n "$CUSTOM_VERSION" ]]; then
-              echo "custom_version must be empty for a $BUMP version bump" >&2
-              exit 1
-            fi
-
-            latest_version="$({
-              while IFS= read -r tag; do
-                candidate="${tag#v}"
-                if [[ "$candidate" =~ $stable_semver ]]; then
-                  echo "$candidate"
-                fi
-              done < <(git tag --list 'v*')
-            } | sort -V | tail -n 1)"
-            latest_version="${latest_version:-0.0.0}"
-            IFS=. read -r major minor patch <<< "$latest_version"
-
-            case "$BUMP" in
-              major) version="$((10#$major + 1)).0.0" ;;
-              minor) version="$major.$((10#$minor + 1)).0" ;;
-              patch) version="$major.$minor.$((10#$patch + 1))" ;;
-              *) echo "unsupported version bump: $BUMP" >&2; exit 1 ;;
-            esac
-          fi
-
-          if [[ ! "$version" =~ $semver ]]; then
-            echo "version must be semantic and must not include a leading v" >&2
+          if [[ "$source_tag" != "source-$version" || ! "$version" =~ $semver ]]; then
+            echo "source tag must be source-<semantic version> (for example, source-1.2.3)" >&2
             exit 1
           fi
 
           echo "Resolved version: $version"
 
-          source_tag="source-$version"
           tag="v$version"
           if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
             echo "tag $tag already exists" >&2
             exit 1
           fi
 
-          if git ls-remote --exit-code --tags origin "refs/tags/$source_tag" >/dev/null 2>&1; then
-            git fetch --force origin "refs/tags/$source_tag:refs/tags/$source_tag"
-            tagged_commit="$(git rev-parse "$source_tag^{commit}")"
-            if [[ "$tagged_commit" != "$GITHUB_SHA" ]]; then
-              echo "tag $source_tag points to $tagged_commit, not $GITHUB_SHA" >&2
-              exit 1
-            fi
-          fi
+          source_commit="$(git rev-parse "$source_tag^{commit}")"
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "source_commit=$source_commit" >> "$GITHUB_OUTPUT"
           echo "source_tag=$source_tag" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
@@ -185,6 +133,7 @@ jobs:
       ARCHIVE: XADIBinary.artifactbundle.zip
       BUNDLE: out/XADIBinary.artifactbundle
       SOURCE_TAG: ${{ needs.validate.outputs.source_tag }}
+      SOURCE_COMMIT: ${{ needs.validate.outputs.source_commit }}
       TAG: ${{ needs.validate.outputs.tag }}
       VERSION: ${{ needs.validate.outputs.version }}
       GH_TOKEN: ${{ github.token }}
@@ -230,22 +179,9 @@ jobs:
           checksum="$(swift package compute-checksum "$RUNNER_TEMP/$ARCHIVE")"
           echo "checksum=$checksum" >> "$GITHUB_OUTPUT"
 
-      - name: Tag source and create GitHub release
+      - name: Create GitHub release
         run: |
           set -euo pipefail
-
-          if git ls-remote --exit-code --tags origin "refs/tags/$SOURCE_TAG" >/dev/null 2>&1; then
-            git fetch --force origin "refs/tags/$SOURCE_TAG:refs/tags/$SOURCE_TAG"
-            tagged_commit="$(git rev-parse "$SOURCE_TAG^{commit}")"
-            if [[ "$tagged_commit" != "$GITHUB_SHA" ]]; then
-              echo "tag $SOURCE_TAG points to $tagged_commit, not $GITHUB_SHA" >&2
-              exit 1
-            fi
-          else
-            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
-              --raw-field ref="refs/tags/$SOURCE_TAG" \
-              --raw-field sha="$GITHUB_SHA" >/dev/null
-          fi
 
           if gh release view "$SOURCE_TAG" >/dev/null 2>&1; then
             gh release upload "$SOURCE_TAG" \
@@ -265,7 +201,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          source_commit="$GITHUB_SHA"
+          source_commit="$SOURCE_COMMIT"
 
           artifact_url="https://github.com/$GITHUB_REPOSITORY/releases/download/$SOURCE_TAG/$ARCHIVE"
           awk -v url="$artifact_url" -v checksum="$CHECKSUM" '
@@ -282,60 +218,18 @@ jobs:
           ' Package.swift > "$RUNNER_TEMP/Package.swift"
           mv "$RUNNER_TEMP/Package.swift" Package.swift
 
-          package_content="$(base64 < Package.swift | tr -d '\n')"
-          package_blob="$(
-            gh api --method POST "repos/$GITHUB_REPOSITORY/git/blobs" \
-              --raw-field content="$package_content" \
-              --raw-field encoding=base64 \
-              --jq .sha
-          )"
-          source_tree="$(
-            gh api "repos/$GITHUB_REPOSITORY/git/commits/$source_commit" \
-              --jq .tree.sha
-          )"
-          release_tree="$(
-            jq -n \
-              --arg base_tree "$source_tree" \
-              --arg blob "$package_blob" \
-              '{
-                base_tree: $base_tree,
-                tree: [{
-                  path: "Package.swift",
-                  mode: "100644",
-                  type: "blob",
-                  sha: $blob
-                }]
-              }' | gh api --method POST \
-                "repos/$GITHUB_REPOSITORY/git/trees" \
-                --input - \
-                --jq .sha
-          )"
-          release_commit="$(
-            jq -n \
-              --arg message "Release $VERSION" \
-              --arg tree "$release_tree" \
-              --arg parent "$source_commit" \
-              '{message: $message, tree: $tree, parents: [$parent]}' |
-              gh api --method POST \
-                "repos/$GITHUB_REPOSITORY/git/commits" \
-                --input - \
-                --jq .sha
-          )"
-
-          # GitHub's refs API can publish commits containing workflow files
-          # with the default Actions token. Publish the branch first so the
-          # version tag is never visible before its manifest is available.
-          if git ls-remote --exit-code --heads origin refs/heads/release >/dev/null 2>&1; then
-            gh api --method PATCH \
-              "repos/$GITHUB_REPOSITORY/git/refs/heads/release" \
-              --raw-field sha="$release_commit" \
-              --field force=true >/dev/null
-          else
-            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
-              --raw-field ref=refs/heads/release \
-              --raw-field sha="$release_commit" >/dev/null
+          if [[ "$(git rev-parse HEAD)" != "$source_commit" ]]; then
+            echo "checkout does not match source commit $source_commit" >&2
+            exit 1
           fi
 
-          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
-            --raw-field ref="refs/tags/$TAG" \
-            --raw-field sha="$release_commit" >/dev/null
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add Package.swift
+          git commit -m "Release $VERSION"
+          release_commit="$(git rev-parse HEAD)"
+
+          # Publish the branch first so the version tag is never visible before
+          # its manifest is available.
+          git push --force origin "$release_commit:refs/heads/release"
+          git push origin "$release_commit:refs/tags/$TAG"
