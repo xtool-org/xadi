@@ -1,0 +1,7 @@
+.build
+.git
+.swiftpm
+bin
+out
+tmp
+.DS_Store

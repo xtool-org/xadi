@@ -1,0 +1,4 @@
+module XADIBinary [extern_c] {
+    header "XADI.h"
+    export *
+}

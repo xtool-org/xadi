@@ -5,15 +5,21 @@ import PackageDescription
 let package = Package(
     name: "xadi",
     products: [
-        .library(name: "XADI", targets: ["XADI"])
+        // has to be dynamic because LGPL
+        .library(
+            name: "XADI",
+            type: .dynamic,
+            targets: ["XADI"]
+        )
     ],
     targets: [
         .target(
             name: "XADI",
-            dependencies: [
-                .byName(name: "XADISystem", condition: .when(platforms: [.linux])),
-            ],
+            dependencies: ["XADIBinary"]
         ),
-        .systemLibrary(name: "XADISystem"),
+        .binaryTarget(
+            name: "XADIBinary",
+            path: "out/XADIBinary.artifactbundle"
+        )
     ]
 )
