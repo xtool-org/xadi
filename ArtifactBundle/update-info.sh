@@ -2,7 +2,8 @@
 
 set -euo pipefail
 
-bundle="${1:?usage: update-info.sh <artifact-bundle>}"
+bundle="${1:?usage: update-info.sh <artifact-bundle> [version]}"
+version="${2:-0.0.1}"
 triples=(
     arm64-apple-macosx
     x86_64-apple-macosx
@@ -24,12 +25,12 @@ if (( ${#available_triples[@]} == 0 )); then
 fi
 
 {
-    cat <<'EOF'
+    cat <<EOF
 {
     "schemaVersion": "1.0",
     "artifacts": {
         "XADIBinary": {
-            "version": "0.1.0",
+            "version": "$version",
             "type": "staticLibrary",
             "variants": [
 EOF
