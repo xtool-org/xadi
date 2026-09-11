@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Build XADIMac.xcframework
+# Build a self-contained macOS static-library artifact bundle.
 
 set -euo pipefail
 
@@ -11,8 +11,19 @@ export MACOSX_DEPLOYMENT_TARGET=11.0
 command -v dub >/dev/null || { echo "dub not found in PATH" >&2; exit 1; }
 command -v ldc2 >/dev/null || { echo "ldc2 not found in PATH" >&2; exit 1; }
 
-rm -rf bin/libxadibase.a tmp/stage out
-mkdir -p tmp/stage out
+bundle="out/XADIBinary.artifactbundle"
+stage="tmp/macos-stage"
+
+rm -rf bin/libxadibase.a \
+    "$stage" \
+    "$bundle/arm64-apple-macosx" \
+    "$bundle/x86_64-apple-macosx" \
+    out/XADIMac.artifactbundle \
+    out/XADIMac.xcframework.zip
+mkdir -p "$stage" \
+    "$bundle/arm64-apple-macosx" \
+    "$bundle/x86_64-apple-macosx" \
+    "$bundle/include"
 
 find_runtime_libraries() {
     local target_arch="$1"
@@ -59,7 +70,7 @@ find_runtime_libraries() {
 build_arch() {
     local dub_arch="$1"
     local runtime_arch="$2"
-    local output="tmp/stage/libxadibase-$runtime_arch.a"
+    local output="$stage/libxadibase-$runtime_arch.a"
 
     # A staticLibrary build has no final link step. --combined puts every DUB
     # dependency in libxadi.a, then libtool folds in the matching static D
@@ -78,11 +89,15 @@ build_arch() {
 build_arch x86_64 x86_64
 build_arch aarch64 arm64
 
-lipo -create tmp/stage/libxadibase-x86_64.a tmp/stage/libxadibase-arm64.a \
+lipo -create "$stage/libxadibase-x86_64.a" "$stage/libxadibase-arm64.a" \
     -output bin/libxadibase.a
 
-xcodebuild -create-xcframework -library bin/libxadibase.a -output tmp/stage/XADIMac.xcframework
+cp "$stage/libxadibase-arm64.a" \
+    "$bundle/arm64-apple-macosx/libxadibase.a"
+cp "$stage/libxadibase-x86_64.a" \
+    "$bundle/x86_64-apple-macosx/libxadibase.a"
+cp Sources/XADI/include/XADI.h "$bundle/include/XADI.h"
+cp ArtifactBundle/module.modulemap "$bundle/include/module.modulemap"
+./ArtifactBundle/update-info.sh "$bundle"
 
-(cd tmp/stage && zip -yqr ../../out/XADIMac.xcframework.zip XADIMac.xcframework)
-
-# rm -rf tmp/stage
+# rm -rf "$stage"

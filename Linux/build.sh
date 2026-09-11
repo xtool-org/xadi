@@ -17,9 +17,12 @@ case "$(uname -m)" in
 esac
 
 triple="$dub_arch-unknown-linux-gnu"
-bundle="out/XADILinux.artifactbundle"
+bundle="out/XADIBinary.artifactbundle"
 
-rm -rf tmp/linux-stage "$bundle"
+rm -rf tmp/linux-stage \
+    "$bundle/$triple" \
+    out/Linux \
+    out/XADILinux.artifactbundle
 mkdir -p tmp/linux-stage "$bundle/$triple" "$bundle/include"
 
 find_runtime_libraries() {
@@ -82,28 +85,7 @@ ar -s "$output"
 cp "$output" bin/libxadibase.a
 cp "$output" "$bundle/$triple/libxadibase.a"
 cp Sources/XADI/include/XADI.h "$bundle/include/XADI.h"
-cp Linux/module.modulemap "$bundle/include/module.modulemap"
-
-cat > "$bundle/info.json" <<EOF
-{
-    "schemaVersion": "1.0",
-    "artifacts": {
-        "XADILinux": {
-            "version": "0.1.0",
-            "type": "staticLibrary",
-            "variants": [
-                {
-                    "path": "$triple/libxadibase.a",
-                    "supportedTriples": ["$triple"],
-                    "staticLibraryMetadata": {
-                        "headerPaths": ["include"],
-                        "moduleMapPath": "include/module.modulemap"
-                    }
-                }
-            ]
-        }
-    }
-}
-EOF
+cp ArtifactBundle/module.modulemap "$bundle/include/module.modulemap"
+./ArtifactBundle/update-info.sh "$bundle"
 
 rm -rf tmp/linux-stage

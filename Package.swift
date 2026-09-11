@@ -2,27 +2,6 @@
 
 import PackageDescription
 
-var xadiDependencies: [Target.Dependency] = []
-var platformTargets: [Target] = []
-
-#if os(macOS)
-xadiDependencies.append("XADIMac")
-platformTargets.append(
-    .binaryTarget(
-        name: "XADIMac",
-        path: "out/XADIMac.xcframework.zip"
-    )
-)
-#elseif os(Linux)
-xadiDependencies.append("XADILinux")
-platformTargets.append(
-    .binaryTarget(
-        name: "XADILinux",
-        path: "out/XADILinux.artifactbundle"
-    )
-)
-#endif
-
 let package = Package(
     name: "xadi",
     products: [
@@ -35,11 +14,15 @@ let package = Package(
     targets: [
         .target(
             name: "XADI",
-            dependencies: xadiDependencies
+            dependencies: ["XADIBinary"]
         ),
         .testTarget(
             name: "XADITests",
             dependencies: ["XADI"],
+        ),
+        .binaryTarget(
+            name: "XADIBinary",
+            path: "out/XADIBinary.artifactbundle"
         )
-    ] + platformTargets
+    ]
 )
