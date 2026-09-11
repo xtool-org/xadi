@@ -6,19 +6,19 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-rm -rf bin/libxadi.dylib tmp/stage out
+rm -rf bin/libxadibase.dylib tmp/stage out
 mkdir -p tmp/stage out
 
 dub build --arch=x86_64 --build=release
-mv bin/libxadi.dylib tmp/stage/libxadi-x86_64.dylib
+mv bin/libxadibase.dylib tmp/stage/libxadibase-x86_64.dylib
 
 dub build --arch=aarch64 --build=release
-mv bin/libxadi.dylib tmp/stage/libxadi-arm64.dylib
+mv bin/libxadibase.dylib tmp/stage/libxadibase-arm64.dylib
 
-lipo -create tmp/stage/libxadi-x86_64.dylib tmp/stage/libxadi-arm64.dylib \
-    -output tmp/stage/libxadi.dylib
+lipo -create tmp/stage/libxadibase-x86_64.dylib tmp/stage/libxadibase-arm64.dylib \
+    -output tmp/stage/libxadibase.dylib
 
-xcodebuild -create-xcframework -library tmp/stage/libxadi.dylib -output tmp/stage/XADIMac.xcframework
+xcodebuild -create-xcframework -library tmp/stage/libxadibase.dylib -output tmp/stage/XADIMac.xcframework
 
 (cd tmp/stage && zip -yqr ../../out/XADIMac.xcframework.zip XADIMac.xcframework)
 
