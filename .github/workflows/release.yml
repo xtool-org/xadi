@@ -87,6 +87,8 @@ jobs:
             exit 1
           fi
 
+          echo "Resolved version: $version"
+
           source_tag="source-$version"
           tag="v$version"
           if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
