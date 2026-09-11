@@ -20,6 +20,6 @@ lipo -create tmp/stage/libxadi-x86_64.dylib tmp/stage/libxadi-arm64.dylib \
 
 xcodebuild -create-xcframework -library tmp/stage/libxadi.dylib -output tmp/stage/XADIMac.xcframework
 
-zip -yqr out/XADIMac.xcframework.zip tmp/stage/XADIMac.xcframework
+(cd tmp/stage && zip -yqr ../../out/XADIMac.xcframework.zip XADIMac.xcframework)
 
 rm -rf tmp/stage
