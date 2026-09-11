@@ -86,7 +86,7 @@ jobs:
         run: |
           set -euo pipefail
           ./Linux/build.sh
-          swift test --package-path test --scratch-path "$RUNNER_TEMP/xadi-tests"
+          make test
 
       - name: Pack architecture slice
         env:
@@ -116,7 +116,7 @@ jobs:
         run: |
           set -euo pipefail
           ./macOS/build.sh
-          swift test --package-path test --scratch-path "$RUNNER_TEMP/xadi-tests"
+          make test
 
       - name: Pack macOS slices
         run: |
@@ -172,7 +172,7 @@ jobs:
           test -f "$BUNDLE/x86_64-apple-macosx/libxadibase.a"
           test -f "$BUNDLE/aarch64-unknown-linux-gnu/libxadibase.a"
           test -f "$BUNDLE/x86_64-unknown-linux-gnu/libxadibase.a"
-          swift test --package-path test --scratch-path "$RUNNER_TEMP/xadi-tests"
+          make test
 
       - name: Archive artifact bundle
         id: archive
