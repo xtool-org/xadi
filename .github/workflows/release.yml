@@ -234,9 +234,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-
           if git ls-remote --exit-code --tags origin "refs/tags/$SOURCE_TAG" >/dev/null 2>&1; then
             git fetch --force origin "refs/tags/$SOURCE_TAG:refs/tags/$SOURCE_TAG"
             tagged_commit="$(git rev-parse "$SOURCE_TAG^{commit}")"
@@ -245,8 +242,9 @@ jobs:
               exit 1
             fi
           else
-            git tag --annotate "$SOURCE_TAG" "$GITHUB_SHA" --message "xadi v$VERSION source"
-            git push origin "$SOURCE_TAG"
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              --raw-field ref="refs/tags/$SOURCE_TAG" \
+              --raw-field sha="$GITHUB_SHA" >/dev/null
           fi
 
           if gh release view "$SOURCE_TAG" >/dev/null 2>&1; then
@@ -267,9 +265,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          release_tip="$(git ls-remote --heads origin refs/heads/release | awk '{ print $1 }')"
-          source_commit="$(git rev-parse "$SOURCE_TAG^{commit}")"
-          git switch --force-create release "$source_commit"
+          source_commit="$GITHUB_SHA"
 
           artifact_url="https://github.com/$GITHUB_REPOSITORY/releases/download/$SOURCE_TAG/$ARCHIVE"
           awk -v url="$artifact_url" -v checksum="$CHECKSUM" '
@@ -286,18 +282,60 @@ jobs:
           ' Package.swift > "$RUNNER_TEMP/Package.swift"
           mv "$RUNNER_TEMP/Package.swift" Package.swift
 
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add --all
-          git commit -m "Release $VERSION"
-          git tag --annotate "$TAG" --message "XADI $VERSION"
+          package_content="$(base64 < Package.swift | tr -d '\n')"
+          package_blob="$(
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/blobs" \
+              --raw-field content="$package_content" \
+              --raw-field encoding=base64 \
+              --jq .sha
+          )"
+          source_tree="$(
+            gh api "repos/$GITHUB_REPOSITORY/git/commits/$source_commit" \
+              --jq .tree.sha
+          )"
+          release_tree="$(
+            jq -n \
+              --arg base_tree "$source_tree" \
+              --arg blob "$package_blob" \
+              '{
+                base_tree: $base_tree,
+                tree: [{
+                  path: "Package.swift",
+                  mode: "100644",
+                  type: "blob",
+                  sha: $blob
+                }]
+              }' | gh api --method POST \
+                "repos/$GITHUB_REPOSITORY/git/trees" \
+                --input - \
+                --jq .sha
+          )"
+          release_commit="$(
+            jq -n \
+              --arg message "Release $VERSION" \
+              --arg tree "$release_tree" \
+              --arg parent "$source_commit" \
+              '{message: $message, tree: $tree, parents: [$parent]}' |
+              gh api --method POST \
+                "repos/$GITHUB_REPOSITORY/git/commits" \
+                --input - \
+                --jq .sha
+          )"
 
-          if [[ -n "$release_tip" ]]; then
-            git push --atomic \
-              --force-with-lease="refs/heads/release:$release_tip" \
-              origin release "$TAG"
+          # GitHub's refs API can publish commits containing workflow files
+          # with the default Actions token. Publish the branch first so the
+          # version tag is never visible before its manifest is available.
+          if git ls-remote --exit-code --heads origin refs/heads/release >/dev/null 2>&1; then
+            gh api --method PATCH \
+              "repos/$GITHUB_REPOSITORY/git/refs/heads/release" \
+              --raw-field sha="$release_commit" \
+              --field force=true >/dev/null
           else
-            git push --atomic \
-              --force-with-lease="refs/heads/release:" \
-              origin release "$TAG"
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              --raw-field ref=refs/heads/release \
+              --raw-field sha="$release_commit" >/dev/null
           fi
+
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            --raw-field ref="refs/tags/$TAG" \
+            --raw-field sha="$release_commit" >/dev/null
