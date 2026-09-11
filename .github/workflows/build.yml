@@ -1,0 +1,38 @@
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - macos-15
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install LDC and DUB
+        run: |
+          set -euo pipefail
+          curl -fsS https://dlang.org/install.sh | bash -s ldc
+
+      - name: Build and test
+        run: |
+          set -euo pipefail
+          source "$("$HOME/dlang/install.sh" ldc -a)"
+          make test
