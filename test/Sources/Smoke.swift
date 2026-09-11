@@ -7,7 +7,7 @@ private let projectDir = URL(filePath: #filePath)
     .deletingLastPathComponent()
     .deletingLastPathComponent()
 
-private func libDir() -> URL {
+private func libDir() throws -> URL {
     #if arch(x86_64)
     let arch = "x86_64"
     #elseif arch(arm64)
@@ -15,7 +15,9 @@ private func libDir() -> URL {
     #else
     #error("Unsupported architecture")
     #endif
-    return projectDir.appending(components: "tmp", "adi-lib", arch)
+    let url = projectDir.appending(components: "tmp", "adi-lib", arch)
+    try #require(FileManager.default.fileExists(atPath: url.path), "Run `make libs` first")
+    return url
 }
 
 @Test func smoke() throws {
@@ -24,7 +26,8 @@ private func libDir() -> URL {
     defer { try? FileManager.default.removeItem(at: tempDir) }
     try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
 
-    xadi_Load(libDir().path)
+    let libDir = try libDir()
+    xadi_Load(libDir.path)
 
     let id = UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(16).lowercased()
     #expect(xadi_SetAndroidID(id, UInt32(id.utf8.count)) == 0)

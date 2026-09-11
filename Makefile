@@ -7,7 +7,11 @@ else
 endif
 
 .PHONY: test
-test: build tmp/adi-lib
+test: build
+	@+$(MAKE) -B test-without-building
+
+.PHONY: test-without-building
+test-without-building: tmp/adi-lib
 	swift test --package-path test --scratch-path $$PWD/.build
 
 .PHONY: libs

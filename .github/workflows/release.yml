@@ -85,7 +85,6 @@ jobs:
       - name: Build and test
         run: |
           set -euo pipefail
-          ./Linux/build.sh
           make test
 
       - name: Pack architecture slice
@@ -115,7 +114,6 @@ jobs:
       - name: Build and test
         run: |
           set -euo pipefail
-          ./macOS/build.sh
           make test
 
       - name: Pack macOS slices
@@ -172,7 +170,7 @@ jobs:
           test -f "$BUNDLE/x86_64-apple-macosx/libxadibase.a"
           test -f "$BUNDLE/aarch64-unknown-linux-gnu/libxadibase.a"
           test -f "$BUNDLE/x86_64-unknown-linux-gnu/libxadibase.a"
-          make test
+          make test-without-building
 
       - name: Archive artifact bundle
         id: archive
