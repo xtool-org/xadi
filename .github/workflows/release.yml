@@ -199,7 +199,7 @@ jobs:
               exit 1
             fi
           else
-            git tag --annotate "$SOURCE_TAG" "$GITHUB_SHA" --message "XADI $VERSION source"
+            git tag --annotate "$SOURCE_TAG" "$GITHUB_SHA" --message "xadi v$VERSION source"
             git push origin "$SOURCE_TAG"
           fi
 
@@ -211,7 +211,7 @@ jobs:
             gh release create "$SOURCE_TAG" \
               "$RUNNER_TEMP/$ARCHIVE#$ARCHIVE" \
               --verify-tag \
-              --title "XADI $VERSION" \
+              --title "v$VERSION" \
               --generate-notes
           fi
 
@@ -221,17 +221,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          source_commit="$GITHUB_SHA"
-          if git ls-remote --exit-code --heads origin release >/dev/null 2>&1; then
-            git fetch origin release
-            git switch --force-create release FETCH_HEAD
-          else
-            git switch --orphan release
-          fi
-
-          # Keep release history linear while making its contents an exact copy
-          # of the source revision used for this build.
-          git read-tree --reset -u "$source_commit"
+          release_tip="$(git ls-remote --heads origin refs/heads/release | awk '{ print $1 }')"
+          source_commit="$(git rev-parse "$SOURCE_TAG^{commit}")"
+          git switch --force-create release "$source_commit"
 
           artifact_url="https://github.com/$GITHUB_REPOSITORY/releases/download/$SOURCE_TAG/$ARCHIVE"
           awk -v url="$artifact_url" -v checksum="$CHECKSUM" '
@@ -253,4 +245,13 @@ jobs:
           git add --all
           git commit -m "Release $VERSION"
           git tag --annotate "$TAG" --message "XADI $VERSION"
-          git push --atomic origin release "$TAG"
+
+          if [[ -n "$release_tip" ]]; then
+            git push --atomic \
+              --force-with-lease="refs/heads/release:$release_tip" \
+              origin release "$TAG"
+          else
+            git push --atomic \
+              --force-with-lease="refs/heads/release:" \
+              origin release "$TAG"
+          fi
