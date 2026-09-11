@@ -1,6 +1,7 @@
 /bin
-/.build
-/.DS_Store
-/.swiftpm
 /tmp
 /out
+
+.build
+.DS_Store
+.swiftpm

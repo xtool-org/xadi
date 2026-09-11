@@ -13,6 +13,4 @@ RUN curl -fsS https://dlang.org/install.sh | bash -s ldc
 WORKDIR /workspace
 COPY . .
 
-RUN /bin/bash -c 'source $(/root/dlang/install.sh ldc -a) && ./Linux/build.sh'
-
-RUN swift test
+RUN /bin/bash -c 'source $(/root/dlang/install.sh ldc -a) && make test'

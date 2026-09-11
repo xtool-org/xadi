@@ -16,10 +16,6 @@ let package = Package(
             name: "XADI",
             dependencies: ["XADIBinary"]
         ),
-        .testTarget(
-            name: "XADITests",
-            dependencies: ["XADI"],
-        ),
         .binaryTarget(
             name: "XADIBinary",
             path: "out/XADIBinary.artifactbundle"

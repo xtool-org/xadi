@@ -78,8 +78,7 @@ build_arch() {
     dub build \
         --arch="$dub_arch" \
         --build=release \
-        --combined \
-        --force
+        --combined
 
     /usr/bin/libtool -static -o "$output" \
         bin/libxadibase.a \
@@ -100,4 +99,4 @@ cp Sources/XADI/include/XADI.h "$bundle/include/XADI.h"
 cp ArtifactBundle/module.modulemap "$bundle/include/module.modulemap"
 ./ArtifactBundle/update-info.sh "$bundle"
 
-# rm -rf "$stage"
+rm -rf "$stage"

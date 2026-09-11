@@ -66,8 +66,7 @@ find_runtime_libraries() {
 dub build \
     --arch="$dub_arch" \
     --build=release \
-    --combined \
-    --force
+    --combined
 
 find_runtime_libraries
 
