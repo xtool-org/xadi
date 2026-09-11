@@ -1,0 +1,4 @@
+module XADILinux [extern_c] {
+    header "XADI.h"
+    export *
+}
