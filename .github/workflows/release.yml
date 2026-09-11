@@ -42,12 +42,19 @@ jobs:
 
           source_tag="source-$VERSION"
           tag="v$VERSION"
-          for candidate in "$source_tag" "$tag"; do
-            if git ls-remote --exit-code --tags origin "refs/tags/$candidate" >/dev/null 2>&1; then
-              echo "tag $candidate already exists" >&2
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "tag $tag already exists" >&2
+            exit 1
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$source_tag" >/dev/null 2>&1; then
+            git fetch --force origin "refs/tags/$source_tag:refs/tags/$source_tag"
+            tagged_commit="$(git rev-parse "$source_tag^{commit}")"
+            if [[ "$tagged_commit" != "$GITHUB_SHA" ]]; then
+              echo "tag $source_tag points to $tagged_commit, not $GITHUB_SHA" >&2
               exit 1
             fi
-          done
+          fi
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "source_tag=$source_tag" >> "$GITHUB_OUTPUT"
@@ -184,14 +191,30 @@ jobs:
 
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git tag --annotate "$SOURCE_TAG" "$GITHUB_SHA" --message "XADI $VERSION source"
-          git push origin "$SOURCE_TAG"
 
-          gh release create "$SOURCE_TAG" \
-            "$RUNNER_TEMP/$ARCHIVE#$ARCHIVE" \
-            --verify-tag \
-            --title "XADI $VERSION" \
-            --generate-notes
+          if git ls-remote --exit-code --tags origin "refs/tags/$SOURCE_TAG" >/dev/null 2>&1; then
+            git fetch --force origin "refs/tags/$SOURCE_TAG:refs/tags/$SOURCE_TAG"
+            tagged_commit="$(git rev-parse "$SOURCE_TAG^{commit}")"
+            if [[ "$tagged_commit" != "$GITHUB_SHA" ]]; then
+              echo "tag $SOURCE_TAG points to $tagged_commit, not $GITHUB_SHA" >&2
+              exit 1
+            fi
+          else
+            git tag --annotate "$SOURCE_TAG" "$GITHUB_SHA" --message "XADI $VERSION source"
+            git push origin "$SOURCE_TAG"
+          fi
+
+          if gh release view "$SOURCE_TAG" >/dev/null 2>&1; then
+            gh release upload "$SOURCE_TAG" \
+              "$RUNNER_TEMP/$ARCHIVE#$ARCHIVE" \
+              --clobber
+          else
+            gh release create "$SOURCE_TAG" \
+              "$RUNNER_TEMP/$ARCHIVE#$ARCHIVE" \
+              --verify-tag \
+              --title "XADI $VERSION" \
+              --generate-notes
+          fi
 
       - name: Commit release manifest and tag version
         env:
