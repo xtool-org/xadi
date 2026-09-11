@@ -5,11 +5,11 @@ import PackageDescription
 let package = Package(
     name: "xadi",
     products: [
-        .library(name: "XADI", targets: ["XADIUmbrella"])
+        .library(name: "XADI", targets: ["XADI"])
     ],
     targets: [
         .target(
-            name: "XADIUmbrella",
+            name: "XADI",
             dependencies: [
                 .byName(name: "XADISystem", condition: .when(platforms: [.linux])),
             ],
