@@ -5,6 +5,7 @@ import PackageDescription
 let package = Package(
     name: "xadi",
     products: [
+        // has to be dynamic because LGPL
         .library(
             name: "XADI",
             type: .dynamic,
