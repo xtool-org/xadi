@@ -3,4 +3,7 @@ name "xadibase"
 targetType "staticLibrary"
 targetPath "bin"
 
-dependency "provision" repository="git+https://github.com/Dadoum/Provision.git" version="7717ce1f7b3c9779fe9982005d07b6665071a239"
+dependency "provision" repository="git+https://github.com/xtool-org/Provision.git" version="135c9bd1671e0607fe1dfa4f5c1e0003f6709442"
+
+# libplist-d brings in symbols like plist_from_bin which shadow the copy of libplist that xtool uses
+subConfiguration "provision" "plist-d"
