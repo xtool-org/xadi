@@ -6,7 +6,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-export MACOSX_DEPLOYMENT_TARGET=11.0
+export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-11.0}"
 
 command -v dub >/dev/null || { echo "dub not found in PATH" >&2; exit 1; }
 command -v ldc2 >/dev/null || { echo "ldc2 not found in PATH" >&2; exit 1; }
