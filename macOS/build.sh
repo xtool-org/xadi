@@ -71,6 +71,7 @@ build_arch() {
     local dub_arch="$1"
     local runtime_arch="$2"
     local output="$stage/libxadibase-$runtime_arch.a"
+    local runtime_libraries
 
     # A staticLibrary build has no final link step. --combined puts every DUB
     # dependency in libxadi.a, then libtool folds in the matching static D
@@ -80,9 +81,10 @@ build_arch() {
         --build=release \
         --combined
 
+    runtime_libraries="$(find_runtime_libraries "$runtime_arch")"
     /usr/bin/libtool -static -o "$output" \
         bin/libxadibase.a \
-        $(find_runtime_libraries "$runtime_arch")
+        $runtime_libraries
 }
 
 build_arch x86_64 x86_64
