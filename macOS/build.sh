@@ -82,7 +82,7 @@ build_arch() {
         --combined
 
     runtime_libraries="$(find_runtime_libraries "$runtime_arch")"
-    /usr/bin/libtool -static -o "$output" \
+    libtool -static -o "$output" \
         bin/libxadibase.a \
         $runtime_libraries
 }
